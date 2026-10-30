@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+
+# project data never belongs in this repo - keep jobs in their own folders
+*.pdf
+*.csv
+*.rxl
+*.vce
+*.xml
+*.html
+jobs/
