@@ -98,12 +98,14 @@ def sheet_values(holes, ranges, alignment, row_labels=(), decimals=2, increase="
     lo_end = [ref(min(rows[i], key=lambda h: h.sta), i) for i in order]
     hi_end = [ref(max(rows[i], key=lambda h: h.sta), i) for i in order]
     stas = [h.sta for h in allh]
-    if labels:  # design rows (e.g. TOE / COLLAR) at one elevation each
-        elev = sorted(((sum(h.z for h in rows[i]) / len(rows[i]), labels[i]) for i in order), reverse=True)
-        elevation = " / ".join(f"{lab} {z:.3f}" for z, lab in elev)
-    else:  # as-built holes: give the range
-        zs = [h.z for h in allh]
-        elevation = f"{min(zs):.3f} TO {max(zs):.3f}"
+    def zrange(hs):  # one value for a design row, a range for as-built shots
+        lo, hi = f"{min(h.z for h in hs):.3f}", f"{max(h.z for h in hs):.3f}"
+        return lo if lo == hi else f"{lo} TO {hi}"
+
+    if labels:
+        elevation = " / ".join(f"{labels[i]} {zrange(rows[i])}" for i in reversed(order))
+    else:
+        elevation = zrange(allh)
     return {
         "wall_name": f"{compass} ({'LEFT' if side == 'LT' else 'RIGHT'}) WALL",
         "holes": " / ".join(ranges),
