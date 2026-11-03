@@ -27,9 +27,15 @@ def read_check_csv(path):
     """TBC export with columns: Point ID, Pt East, Pt North, Pt Elevation,
     Distance, East, North, Elevation (the last three are the wall point)."""
     with open(path, newline="", encoding="utf-8-sig") as f:
-        return [Hole(r["Point ID"], float(r["Pt East"]), float(r["Pt North"]), float(r["Pt Elevation"]),
-                     float(r["Distance"]), float(r["East"]), float(r["North"]))
-                for r in csv.DictReader(f)]
+        hs = [Hole(r["Point ID"], float(r["Pt East"]), float(r["Pt North"]), float(r["Pt Elevation"]),
+                   float(r["Distance"]), float(r["East"]), float(r["North"]))
+              for r in csv.DictReader(f)]
+    # TBC exports Distance in mm or m depending on project units; hole-to-wall
+    # checks are well under 20 m, so an all-small column is metres
+    if hs and max(h.dist for h in hs) < 20:
+        for h in hs:
+            h.dist *= 1000
+    return hs
 
 
 def locate(holes, alignment):
@@ -91,14 +97,19 @@ def sheet_values(holes, ranges, alignment, row_labels=(), decimals=2, increase="
 
     lo_end = [ref(min(rows[i], key=lambda h: h.sta), i) for i in order]
     hi_end = [ref(max(rows[i], key=lambda h: h.sta), i) for i in order]
-    elev = [(sum(h.z for h in rows[i]) / len(rows[i]), labels.get(i, ranges[i])) for i in order]
     stas = [h.sta for h in allh]
+    if labels:  # design rows (e.g. TOE / COLLAR) at one elevation each
+        elev = sorted(((sum(h.z for h in rows[i]) / len(rows[i]), labels[i]) for i in order), reverse=True)
+        elevation = " / ".join(f"{lab} {z:.3f}" for z, lab in elev)
+    else:  # as-built holes: give the range
+        zs = [h.z for h in allh]
+        elevation = f"{min(zs):.3f} TO {max(zs):.3f}"
     return {
         "wall_name": f"{compass} ({'LEFT' if side == 'LT' else 'RIGHT'}) WALL",
         "holes": " / ".join(ranges),
         "station": f"{format_station(min(stas), 1)} TO {format_station(max(stas), 1)}",
         "offset": f"{side} " + _range_text([abs(h.wall_off) for h in allh], "m"),
-        "elevation": " / ".join(f"{lab} {z:.3f}" for z, lab in sorted(elev, reverse=True)),
+        "elevation": elevation,
         "ends": {"left": lo_end if increase == "right" else hi_end,
                  "right": hi_end if increase == "right" else lo_end},
         "_sort": (0 if side == "LT" else 1, min(stas)),

@@ -15,6 +15,24 @@ def two_view_pdf():
     return doc
 
 
+def test_compose_images_keeps_pixels(tmp_path):
+    paths = []
+    for i, size in enumerate(((300, 100), (200, 50))):
+        pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, *size), False)
+        pix.set_rect(pix.irect, (10 * i, 120, 200))
+        p = tmp_path / f"v{i}.png"
+        pix.save(p)
+        paths.append(p)
+    src = wrap.compose_images([paths])
+    top, bottom = wrap.split_views(src[0])
+    assert top.y1 <= bottom.y0 and abs(top.width - bottom.width) < 0.01
+    out = wrap.build(src, [{"source_page": 1}], {"sheet_size": [1224, 792]})
+    out = pymupdf.open("pdf", out.tobytes(garbage=3, deflate=True))
+    assert out[0].rect.width == 1224
+    got = {pymupdf.Pixmap(out, x[0]).samples for x in out[0].get_images(full=True)}
+    assert all(pymupdf.Pixmap(str(p)).samples in got for p in paths)
+
+
 def test_end_dangling_paths():
     s = b"1 0 0 RG 0 w 60 229 1078 530 re q 1078 0 0 530 60 229 cm /Image Do Q"
     assert b"re n q" in wrap.end_dangling_paths(s)

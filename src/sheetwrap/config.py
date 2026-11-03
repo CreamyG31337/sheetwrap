@@ -36,8 +36,12 @@ def path_of(cfg, key):
     """Resolve a file path setting: env vars expanded, relative to the job
     file. Returns None if unset or the variable was not defined."""
     v = cfg.get(key)
-    if not v:
-        return None
+    return resolve(cfg, v) if v else None
+
+
+def resolve(cfg, v):
+    """One path value: env vars expanded, relative to the job file. None if a
+    variable was not defined."""
     v = os.path.expandvars(v)
     if "$" in v or "%" in v:
         return None

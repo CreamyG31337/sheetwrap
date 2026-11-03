@@ -171,17 +171,37 @@ def open_logo(path):
     return logo if logo.is_pdf else pymupdf.open("pdf", logo.convert_to_pdf())
 
 
+def compose_images(pages, width=1000, gap=20):
+    """Source document built from image files: one page per entry in `pages`
+    (each a list of image paths, top to bottom), the images stacked at a common
+    width. Images are embedded losslessly (PNG pixels are kept as-is; JPEG is
+    copied unchanged), so split_views/place_views treat them like a report."""
+    doc = pymupdf.open()
+    for paths in pages:
+        sizes = []
+        for p in paths:
+            pix = pymupdf.Pixmap(str(p))
+            sizes.append(width * pix.height / pix.width)
+        page = doc.new_page(width=width, height=sum(sizes) + gap * (len(sizes) - 1))
+        y = 0
+        for p, h in zip(paths, sizes):
+            page.insert_image(pymupdf.Rect(0, y, width, y + h), filename=str(p))
+            y += h + gap
+    return doc
+
+
 def build(src, sheets, cfg, logo=None):
     """Return a new document with one title-blocked sheet per entry in
     `sheets`; each is a dict of per-sheet values with "source_page" (1-based)
-    that overrides the document-wide `cfg`."""
+    that overrides the document-wide `cfg`. Sheets are the source page size
+    unless cfg has "sheet_size" [width, height] in points."""
     fix_dangling_paths(src)
     out = pymupdf.open()
     for i, sh in enumerate(sheets):
         pno = sh["source_page"] - 1
         pc = {**cfg, **sh}
         sp = src[pno]
-        W, H = sp.rect.width, sp.rect.height
+        W, H = pc.get("sheet_size") or (sp.rect.width, sp.rect.height)
         page = out.new_page(width=W, height=H)
         border = pymupdf.Rect(MARGIN, MARGIN, W - MARGIN, H - MARGIN)
         page.draw_rect(border, color=BLACK, width=1.5)
@@ -193,5 +213,17 @@ def build(src, sheets, cfg, logo=None):
 
 
 def image_digests(doc):
+    """Raw image stream digests - equal only if the bytes were copied."""
     return {hashlib.sha1(doc.xref_stream_raw(x[0])).hexdigest()
             for p in doc for x in p.get_images(full=True)}
+
+
+def pixel_digests(doc):
+    """Decoded pixel digests - for images embedded from PNG files, whose
+    streams are recompressed on save but whose pixels must not change."""
+    out = set()
+    for p in doc:
+        for x in p.get_images(full=True):
+            pix = pymupdf.Pixmap(doc, x[0])
+            out.add((pix.width, pix.height, hashlib.sha1(pix.samples).hexdigest()))
+    return out

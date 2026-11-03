@@ -66,6 +66,18 @@ Keep each job's JSON next to its data, **not** in this repo.
 }
 ```
 
+**Screenshots instead of a PDF:** omit `input` and give each page its
+image files, top view first. They are stacked at one width and placed on an
+11x17 sheet (`"sheet_size": [1224, 792]` to change). PNG pixels are kept
+exactly; the build checks decoded pixels rather than stream bytes.
+
+```jsonc
+"pages": [{"images": ["ortho.png", "plan.png"], "holes": ["AW510-AW1000"]}]
+```
+
+`holes_csv` may be a list of CSVs. `Distance` is read as mm, or as m when
+every value is under 20.
+
 Any key in a `pages` entry overrides the computed or document-wide value for
 that sheet (`wall_name`, `station`, `offset`, `elevation`, `ends`, ...).
 `page_order` is `"auto"` (left wall first, then by station), a list of
@@ -96,4 +108,6 @@ For each sheet's hole ranges, against the alignment:
   build ends those paths (`re n q`). Only Form XObject operators change.
 - The view split uses the page's two largest images; a page with one image is
   placed whole.
+- Defender Controlled Folder Access may block Python from writing into
+  Documents/OneDrive (event 1123). Point `output` at an unprotected folder.
 - PyMuPDF is AGPL-licensed. Fine for internal use; check before distributing.
