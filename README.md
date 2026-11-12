@@ -15,6 +15,9 @@ title block sheet, without regenerating it in CAD.
 
 ## Install
 
+On the survey PC it is already installed (editable) in the shared `C:\Projects\.venv`. Run it with
+`C:\Projects\.venv\Scripts\python.exe -m sheetwrap ...` (see `C:\Projects\TOOLS.md`). Elsewhere:
+
 ```powershell
 uv venv .venv
 uv pip install --python .venv -e ".[dev]"
