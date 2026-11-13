@@ -90,16 +90,56 @@ def legend_symbol(page, sym, e):
         text(page, sym, e.get("sample", ""), size=6, colour=c, align=1)
 
 
+COLORBAR_BAND_H = 16
+
+
+def colorbar(page, rect, e):
+    """Single stacked colour bar (TBC cut/fill style). `bands` top to bottom, each {"color", "text"};
+    `breaks` (len(bands) - 1) are written at the boundaries; `top` / `bottom` caption the ends."""
+    bands = e["bands"]
+    bx0, bx1 = rect.x0 + 52, rect.x0 + 92
+    y = rect.y0
+    if e.get("top"):
+        text(page, pymupdf.Rect(bx0 - 20, y, bx1 + 20, y + 10), e["top"], size=6.5, bold=True, align=1,
+             colour=BLACK)
+    y += 11
+    for i, b in enumerate(bands):
+        r = pymupdf.Rect(bx0, y, bx1, y + COLORBAR_BAND_H)
+        page.draw_rect(r, color=None, fill=hex_rgb(b["color"]), width=0)
+        if b.get("text"):
+            text(page, pymupdf.Rect(bx1 + 6, y + 4, rect.x1, y + COLORBAR_BAND_H), b["text"], size=6,
+                 colour=BLACK)
+        if i < len(bands) - 1 and i < len(e.get("breaks", [])):
+            text(page, pymupdf.Rect(rect.x0, y + COLORBAR_BAND_H - 4, bx0 - 4, y + COLORBAR_BAND_H + 5),
+                 e["breaks"][i], size=6, align=2, colour=BLACK)
+            page.draw_line((bx0 - 3, y + COLORBAR_BAND_H), (bx0, y + COLORBAR_BAND_H), color=BLACK, width=0.4)
+        y += COLORBAR_BAND_H
+    page.draw_rect(pymupdf.Rect(bx0, rect.y0 + 11, bx1, y), color=BLACK, width=0.5)
+    if e.get("bottom"):
+        text(page, pymupdf.Rect(bx0 - 20, y + 1, bx1 + 20, y + 11), e["bottom"], size=6.5, bold=True, align=1,
+             colour=BLACK)
+
+
+def entry_height(e):
+    if e.get("kind") == "colorbar":
+        return 26 + COLORBAR_BAND_H * len(e["bands"])
+    return LEGEND_ROW_H
+
+
 def legend(page, inner, entries):
     y = inner.y0
     for e in entries:
-        legend_symbol(page, pymupdf.Rect(inner.x0, y + 1, inner.x0 + 34, y + 15), e)
-        text(page, pymupdf.Rect(inner.x0 + 39, y + 1, inner.x1, y + LEGEND_ROW_H), e["label"], size=6)
-        y += LEGEND_ROW_H
+        h = entry_height(e)
+        if e.get("kind") == "colorbar":
+            colorbar(page, pymupdf.Rect(inner.x0, y, inner.x1, y + h), e)
+        else:
+            legend_symbol(page, pymupdf.Rect(inner.x0, y + 1, inner.x0 + 34, y + 15), e)
+            text(page, pymupdf.Rect(inner.x0 + 39, y + 1, inner.x1, y + LEGEND_ROW_H), e["label"], size=6)
+        y += h
 
 
 def legend_height(entries):
-    return 18 + LEGEND_ROW_H * len(entries)
+    return 18 + sum(entry_height(e) for e in entries)
 
 
 def bullets(page, inner, lines, size=6.5, line_h=9):

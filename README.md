@@ -83,7 +83,8 @@ every value is under 20.
 
 Any key in a `pages` entry overrides the computed or document-wide value for
 that sheet (`wall_name`, `station`, `offset`, `elevation`, `ends`, ...).
-`page_order` is `"auto"` (left wall first, then by station), a list of
+`holes_label` renames the HOLES field in the location block (e.g. `"SCAN"` for a
+cut/fill map). `page_order` is `"auto"` (left wall first, then by station), a list of
 source page numbers, or `null` to keep the `pages` order.
 
 Values still in `[brackets]` print in red as unfilled placeholders.
@@ -102,7 +103,14 @@ For each sheet's hole ranges, against the alignment:
 
 ### Legend symbols
 
-`fill`, `gradient`, `line`, `hole`, `text` (with `sample`), `scalebar`.
+`fill`, `gradient`, `line`, `hole`, `text` (with `sample`), `scalebar`, and `colorbar`: one
+stacked bar in TBC cut/fill style.
+
+```jsonc
+{"kind": "colorbar", "top": "FILLS", "bottom": "CUTS",
+ "bands": [{"color": "#4f8fd6", "text": "0.5 m2"}, ...],   // top to bottom
+ "breaks": ["0.200 F", ...]}                                // between bands, len(bands) - 1
+```
 
 ## Notes
 

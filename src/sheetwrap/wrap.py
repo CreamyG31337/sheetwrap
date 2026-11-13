@@ -143,7 +143,8 @@ def draw_strip(page, strip, pc, logo, sheet_no, n_sheets):
     page.draw_rect(loc, color=BLACK, width=1.2)
     y = loc.y0
     field(page, pymupdf.Rect(x0, y, x0 + w * 0.45, y + 22), "WALL", pc.get("wall_name", "[WALL]"))
-    field(page, pymupdf.Rect(x0 + w * 0.45, y, x1, y + 22), "HOLES", pc.get("holes", "[HOLES]"))
+    field(page, pymupdf.Rect(x0 + w * 0.45, y, x1, y + 22), pc.get("holes_label", "HOLES"),
+          pc.get("holes", "[HOLES]"))
     field(page, pymupdf.Rect(x0, y + 22, x0 + w * 0.5, y + 44), "STATION", pc.get("station", "[STATION]"))
     field(page, pymupdf.Rect(x0 + w * 0.5, y + 22, x1, y + 44), "WALL FACE OFFSET FROM CL",
           pc.get("offset", "[OFFSET]"))

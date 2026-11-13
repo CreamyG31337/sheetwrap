@@ -47,6 +47,20 @@ def test_split_views_does_not_overlap():
     assert top.y1 == 570  # overlapping images: split at the upper image's bottom
 
 
+def test_colorbar_legend_and_holes_label():
+    from sheetwrap import sheet
+    bar = {"kind": "colorbar", "top": "FILLS", "bottom": "CUTS",
+           "bands": [{"color": "#0000ff", "text": "1.0 m2"}, {"color": "#ffffff"}, {"color": "#ff0000", "text": "2.0 m2"}],
+           "breaks": ["0.100 F", "0.030 C"]}
+    entries = [bar, {"kind": "line", "label": "OUTLINE"}]
+    assert sheet.legend_height(entries) == 18 + 26 + 3 * sheet.COLORBAR_BAND_H + sheet.LEGEND_ROW_H
+    out = wrap.build(two_view_pdf(), [{"source_page": 1}],
+                     {"legend": entries, "holes_label": "SCAN", "holes": "53 POINTS"})
+    words = pymupdf.open("pdf", out.tobytes())[0].get_text()
+    for w in ("FILLS", "CUTS", "0.100 F", "0.030 C", "2.0 m2", "OUTLINE", "SCAN", "53 POINTS"):
+        assert w in words, w
+
+
 def test_build_keeps_images_identical():
     src = two_view_pdf()
     before = wrap.image_digests(src)
