@@ -72,16 +72,22 @@ def split_views(sp):
     return [top, bottom]
 
 
-def place_views(page, src, pno, area, clips, views, ends=None):
-    """Stack the clipped views in `area` at one common scale, keeping their
-    original horizontal alignment, with a title above each. `ends` holds
-    optional reference lines drawn under the last view at its left/right ends."""
+def _view_scale(area, clips, ends=None):
+    """Common scale factor and layout metrics for `clips` inside `area`."""
     ux0 = min(c.x0 for c in clips)
     ux1 = max(c.x1 for c in clips)
     titles_h = VIEW_TITLE_H * len(clips) + (END_REF_H if ends else 0)
     gaps_h = GAP * 2 * (len(clips) - 1)
     s = min(area.width / (ux1 - ux0),
             (area.height - titles_h - gaps_h) / sum(c.height for c in clips))
+    return s, ux0, ux1, titles_h, gaps_h
+
+
+def place_views(page, src, pno, area, clips, views, ends=None):
+    """Stack the clipped views in `area` at one common scale, keeping their
+    original horizontal alignment, with a title above each. `ends` holds
+    optional reference lines drawn under the last view at its left/right ends."""
+    s, ux0, ux1, titles_h, gaps_h = _view_scale(area, clips, ends)
     used_h = s * sum(c.height for c in clips) + titles_h + gaps_h
     ax = area.x0 + (area.width - s * (ux1 - ux0)) / 2
     y = area.y0 + (area.height - used_h) / 2
@@ -262,32 +268,59 @@ def compose_images(pages, width=1000, gap=20):
     return doc
 
 
+def _layout_boxes(border, layout):
+    """Return (area, boxes) for layout='right' or 'bottom'."""
+    if layout == "bottom":
+        bottom = pymupdf.Rect(border.x0, border.y1 - BOTTOM_H, border.x1, border.y1)
+        legend_strip = pymupdf.Rect(border.x1 - LEGEND_W, border.y0, border.x1, bottom.y0 - GAP)
+        area = pymupdf.Rect(border.x0 + GAP, border.y0 + GAP, legend_strip.x0 - GAP, bottom.y0 - GAP)
+        return area, (legend_strip, bottom)
+    strip = pymupdf.Rect(border.x1 - STRIP_W, border.y0, border.x1, border.y1)
+    area = pymupdf.Rect(border.x0 + GAP, border.y0 + GAP, strip.x0 - GAP, border.y1 - GAP)
+    return area, (strip,)
+
+
 def build(src, sheets, cfg, logo=None):
     """Return a new document with one title-blocked sheet per entry in
     `sheets`; each is a dict of per-sheet values with "source_page" (1-based)
     that overrides the document-wide `cfg`. Sheets are the source page size
-    unless cfg has "sheet_size" [width, height] in points."""
+    unless cfg has "sheet_size" [width, height] in points.
+
+    `layout` (default "right"): "right" places legend, notes, location and
+    title block in a right-hand strip; "bottom" moves notes, location and
+    title block into a full-width bottom band with a slim right legend strip
+    (better for wide, shallow views such as wall scans); "auto" picks
+    whichever gives the larger view scale."""
     fix_dangling_paths(src)
     out = pymupdf.open()
     for i, sh in enumerate(sheets):
         pno = sh["source_page"] - 1
         pc = {**cfg, **sh}
+        layout = pc.get("layout", "right")
+        if layout not in ("right", "bottom", "auto"):
+            raise ValueError(f"unknown layout {layout!r} (expected 'right', 'bottom', or 'auto')")
         sp = src[pno]
         W, H = pc.get("sheet_size") or (sp.rect.width, sp.rect.height)
         page = out.new_page(width=W, height=H)
         border = pymupdf.Rect(MARGIN, MARGIN, W - MARGIN, H - MARGIN)
         page.draw_rect(border, color=BLACK, width=1.5)
-        if pc.get("layout") == "bottom":
-            bottom = pymupdf.Rect(border.x0, border.y1 - BOTTOM_H, border.x1, border.y1)
-            legend_strip = pymupdf.Rect(border.x1 - LEGEND_W, border.y0, border.x1, bottom.y0 - GAP)
-            area = pymupdf.Rect(border.x0 + GAP, border.y0 + GAP, legend_strip.x0 - GAP, bottom.y0 - GAP)
-            place_views(page, src, pno, area, split_views(sp), pc.get("views", []), pc.get("ends"))
-            draw_bottom_band(page, legend_strip, bottom, pc, logo, i + 1, len(sheets))
+        clips = split_views(sp)
+        ends = pc.get("ends")
+        area_r, boxes_r = _layout_boxes(border, "right")
+        area_b, boxes_b = _layout_boxes(border, "bottom")
+        s_r = _view_scale(area_r, clips, ends)[0]
+        s_b = _view_scale(area_b, clips, ends)[0]
+        if layout == "auto":
+            layout = "bottom" if s_b > s_r else "right"
+        elif layout == "right" and s_b >= 1.05 * s_r:
+            pct = (s_b / s_r - 1.0) * 100
+            print(f'hint: sheet {i + 1} would be {pct:.0f}% larger with "layout": "bottom" (wide view)')
+        area, boxes = (area_b, boxes_b) if layout == "bottom" else (area_r, boxes_r)
+        place_views(page, src, pno, area, clips, pc.get("views", []), ends)
+        if layout == "bottom":
+            draw_bottom_band(page, boxes[0], boxes[1], pc, logo, i + 1, len(sheets))
         else:
-            strip = pymupdf.Rect(border.x1 - STRIP_W, border.y0, border.x1, border.y1)
-            area = pymupdf.Rect(border.x0 + GAP, border.y0 + GAP, strip.x0 - GAP, border.y1 - GAP)
-            place_views(page, src, pno, area, split_views(sp), pc.get("views", []), pc.get("ends"))
-            draw_strip(page, strip, pc, logo, i + 1, len(sheets))
+            draw_strip(page, boxes[0], pc, logo, i + 1, len(sheets))
     return out
 
 

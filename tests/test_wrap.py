@@ -85,3 +85,21 @@ def test_build_bottom_layout():
     words = out[0].get_text()
     for w in ("ORTHOGRAPHIC VIEW", "PLAN VIEW", "LEGEND", "SIGN CONVENTION", "NOTES", "TEST", "1 OF 1"):
         assert w in words, w
+
+
+def _wide_pdf():
+    doc = pymupdf.open()
+    page = doc.new_page(width=1224, height=792)
+    page.draw_rect(pymupdf.Rect(50, 250, 1150, 500), color=(0, 0, 0), fill=(0.8, 0.8, 0.8))
+    return doc
+
+
+def test_layout_auto_and_hint(capsys):
+    wide = _wide_pdf()
+    cfg = {"layout": "right", "sheet_size": [1224, 792], "project": "TEST", "legend": []}
+    wrap.build(wide, [{"source_page": 1}], cfg)
+    assert '"layout": "bottom"' in capsys.readouterr().out
+
+    out = wrap.build(wide, [{"source_page": 1}], {**cfg, "layout": "auto"})
+    assert "NOTES" not in out[0].get_text()  # empty notes omitted, bottom band still drawn
+    assert out[0].get_text().count("TEST") >= 1

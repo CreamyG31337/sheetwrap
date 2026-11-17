@@ -82,7 +82,11 @@ exactly; the build checks decoded pixels rather than stream bytes.
 every value is under 20.
 
 Any key in a `pages` entry overrides the computed or document-wide value for
-that sheet (`wall_name`, `station`, `offset`, `elevation`, `ends`, ...).
+that sheet (`wall_name`, `station`, `offset`, `elevation`, `ends`, `layout`, ...).
+`layout` is `"right"` (default right-hand strip), `"bottom"` (full-width bottom
+info/title band + slim right legend strip — better for wide, shallow views such
+as unrolled wall scans), or `"auto"` (picks whichever gives the larger view
+scale; `"right"` also prints a hint when `"bottom"` would be at least 5% larger).
 `holes_label` renames the HOLES field in the location block (e.g. `"SCAN"` for a
 cut/fill map). `page_order` is `"auto"` (left wall first, then by station), a list of
 source page numbers, or `null` to keep the `pages` order.
