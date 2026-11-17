@@ -72,3 +72,16 @@ def test_build_keeps_images_identical():
     assert before <= wrap.image_digests(out)
     words = out[0].get_text()
     assert "ORTHOGRAPHIC VIEW" in words and "PLAN VIEW" in words and "1 OF 1" in words
+
+
+def test_build_bottom_layout():
+    src = two_view_pdf()
+    cfg = {"layout": "bottom", "views": [{"title": "ORTHOGRAPHIC VIEW"}, {"title": "PLAN VIEW"}],
+           "project": "TEST", "sign_convention": ["C = cut"], "notes": ["Note 1"],
+           "legend": [{"kind": "scalebar", "color": "#ff0000", "label": "SCALE"}]}
+    out = wrap.build(src, [{"source_page": 1}], cfg)
+    out = pymupdf.open("pdf", out.tobytes())
+    assert out.page_count == 1
+    words = out[0].get_text()
+    for w in ("ORTHOGRAPHIC VIEW", "PLAN VIEW", "LEGEND", "SIGN CONVENTION", "NOTES", "TEST", "1 OF 1"):
+        assert w in words, w

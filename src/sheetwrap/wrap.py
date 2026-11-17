@@ -18,6 +18,8 @@ from .sheet import BLACK, GREY, field, text
 PT = 72  # points per inch
 MARGIN = 0.25 * PT
 STRIP_W = 3.25 * PT  # right-hand title block strip
+LEGEND_W = 2.15 * PT  # slim right-hand legend strip for bottom layout
+BOTTOM_H = 124        # bottom info/title band height for bottom layout
 GAP = 0.1 * PT
 VIEW_TITLE_H = 24
 END_REF_H = 20
@@ -103,6 +105,32 @@ def place_views(page, src, pno, area, clips, views, ends=None):
                      size=6.5, align=align)
 
 
+def _draw_rows(page, x0, w, rows):
+    for ry, rh, cells in rows:
+        cx = x0
+        for label, value, frac in cells:
+            cw = w * frac
+            field(page, pymupdf.Rect(cx, ry, cx + cw, ry + rh), label, value,
+                  size=9 if label in ("TITLE", "DRAWING No.") else 8)
+            cx += cw
+
+
+def _draw_location(page, rect, pc):
+    """Draw the 4-row scan/location metadata block inside `rect`."""
+    x0, x1, w = rect.x0, rect.x1, rect.width
+    rh = rect.height / 4
+    page.draw_rect(rect, color=BLACK, width=1.2)
+    rows = [
+        (rect.y0, rh, [("WALL", pc.get("wall_name", "[WALL]"), 0.45),
+                       (pc.get("holes_label", "HOLES"), pc.get("holes", "[HOLES]"), 0.55)]),
+        (rect.y0 + rh, rh, [("STATION", pc.get("station", "[STATION]"), 0.5),
+                            ("WALL FACE OFFSET FROM CL", pc.get("offset", "[OFFSET]"), 0.5)]),
+        (rect.y0 + 2 * rh, rh, [("ELEVATION", pc.get("elevation", "[ELEVATION]"), 1.0)]),
+        (rect.y0 + 3 * rh, rh, [("DATUM", pc.get("datum", "[DATUM]"), 1.0)]),
+    ]
+    _draw_rows(page, x0, w, rows)
+
+
 def draw_strip(page, strip, pc, logo, sheet_no, n_sheets):
     x0, x1 = strip.x0, strip.x1
     w = strip.width
@@ -130,26 +158,11 @@ def draw_strip(page, strip, pc, logo, sheet_no, n_sheets):
         tb.y0 -= 22
         rows.insert(0, (tb.y0, 22, [("COMPANY", pc.get("company", "[COMPANY]"), 1.0)]))
     page.draw_rect(tb, color=BLACK, width=1.2)
-    for ry, rh, cells in rows:
-        cx = x0
-        for label, value, frac in cells:
-            cw = w * frac
-            field(page, pymupdf.Rect(cx, ry, cx + cw, ry + rh), label, value,
-                  size=9 if label in ("TITLE", "DRAWING No.") else 8)
-            cx += cw
+    _draw_rows(page, x0, w, rows)
 
     # location block
     loc = pymupdf.Rect(x0, tb.y0 - GAP - 4 * 22, x1, tb.y0 - GAP)
-    page.draw_rect(loc, color=BLACK, width=1.2)
-    y = loc.y0
-    field(page, pymupdf.Rect(x0, y, x0 + w * 0.45, y + 22), "WALL", pc.get("wall_name", "[WALL]"))
-    field(page, pymupdf.Rect(x0 + w * 0.45, y, x1, y + 22), pc.get("holes_label", "HOLES"),
-          pc.get("holes", "[HOLES]"))
-    field(page, pymupdf.Rect(x0, y + 22, x0 + w * 0.5, y + 44), "STATION", pc.get("station", "[STATION]"))
-    field(page, pymupdf.Rect(x0 + w * 0.5, y + 22, x1, y + 44), "WALL FACE OFFSET FROM CL",
-          pc.get("offset", "[OFFSET]"))
-    field(page, pymupdf.Rect(x0, y + 44, x1, y + 66), "ELEVATION", pc.get("elevation", "[ELEVATION]"))
-    field(page, pymupdf.Rect(x0, y + 66, x1, loc.y1), "DATUM", pc.get("datum", "[DATUM]"), size=7)
+    _draw_location(page, loc, pc)
 
     # legend / sign convention / notes fill the remaining space top-down
     entries = pc.get("legend", [])
@@ -164,6 +177,64 @@ def draw_strip(page, strip, pc, logo, sheet_no, n_sheets):
         r = pymupdf.Rect(x0, r.y1 + GAP, x1, loc.y0 - GAP)
         sheet.bullets(page, sheet.section(page, r, "NOTES"),
                       [f"{i}. {s}" for i, s in enumerate(notes, 1)])
+
+
+def draw_bottom_band(page, legend_strip, bottom, pc, logo, sheet_no, n_sheets):
+    """Alternate layout: slim right legend strip + full-width bottom info/title band."""
+    entries = pc.get("legend", [])
+    lr = pymupdf.Rect(legend_strip.x0, legend_strip.y0, legend_strip.x1,
+                      min(legend_strip.y1, legend_strip.y0 + sheet.legend_height(entries)))
+    sheet.legend(page, sheet.section(page, lr, "LEGEND"), entries)
+
+    # Bottom band: [NOTES + SIGN CONVENTION] | [LOCATION] | [LOGO + TITLE BLOCK]
+    tb_w = 360
+    loc_w = 260
+    tb = pymupdf.Rect(bottom.x1 - tb_w, bottom.y0, bottom.x1, bottom.y1)
+    loc = pymupdf.Rect(tb.x0 - GAP - loc_w, bottom.y0, tb.x0 - GAP, bottom.y1)
+    info = pymupdf.Rect(bottom.x0, bottom.y0, loc.x0 - GAP, bottom.y1)
+
+    # Title block (4 rows inside BOTTOM_H = 124: 34 + 36 + 26 + 28)
+    y0 = tb.y0
+    logo_w = 144
+    if logo:
+        cell = pymupdf.Rect(tb.x0, y0, tb.x0 + logo_w, y0 + 34)
+        page.draw_rect(cell, color=BLACK, width=0.5)
+        page.show_pdf_page(cell + (5, 4, -5, -4), logo, 0)
+        field(page, pymupdf.Rect(tb.x0 + logo_w, y0, tb.x1, y0 + 34),
+              "PROJECT", pc.get("project", "[PROJECT]"), size=8)
+    else:
+        _draw_rows(page, tb.x0, tb_w, [(y0, 34, [
+            ("COMPANY", pc.get("company", "[COMPANY]"), 0.4),
+            ("PROJECT", pc.get("project", "[PROJECT]"), 0.6),
+        ])])
+    _draw_rows(page, tb.x0, tb_w, [
+        (y0 + 34, 36, [("TITLE", pc.get("title", "[TITLE]"), 1.0)]),
+        (y0 + 70, 26, [("DRAWN", pc.get("drawn_by", "[INITIALS]"), 0.25),
+                       ("CHECKED", pc.get("checked_by", "[INITIALS]"), 0.25),
+                       ("SCALE", pc.get("scale", "AS SHOWN"), 0.5)]),
+        (y0 + 96, 28, [("DRAWING No.", pc.get("drawing_no", "[No.]"), 0.38),
+                       ("REV", pc.get("revision", "0"), 0.14),
+                       ("SHEET", f"{sheet_no} OF {n_sheets}", 0.22),
+                       ("DATE", pc.get("date", "[YYYY-MM-DD]"), 0.26)]),
+    ])
+    page.draw_rect(tb, color=BLACK, width=1.2)
+
+    _draw_location(page, loc, pc)
+
+    sc = pc.get("sign_convention", [])
+    notes = pc.get("job_notes", []) + pc.get("notes", [])
+    if sc and notes:
+        sc_w = min(225, info.width * 0.42)
+        sc_r = pymupdf.Rect(info.x0, info.y0, info.x0 + sc_w, info.y1)
+        nt_r = pymupdf.Rect(sc_r.x1 + GAP, info.y0, info.x1, info.y1)
+        sheet.bullets(page, sheet.section(page, sc_r, "SIGN CONVENTION"), sc, size=6.0, line_h=8.0)
+        sheet.bullets(page, sheet.section(page, nt_r, "NOTES"),
+                      [f"{i}. {s}" for i, s in enumerate(notes, 1)], size=6.0, line_h=8.0)
+    elif sc:
+        sheet.bullets(page, sheet.section(page, info, "SIGN CONVENTION"), sc, size=6.0, line_h=8.0)
+    elif notes:
+        sheet.bullets(page, sheet.section(page, info, "NOTES"),
+                      [f"{i}. {s}" for i, s in enumerate(notes, 1)], size=6.0, line_h=8.0)
 
 
 def open_logo(path):
@@ -206,10 +277,17 @@ def build(src, sheets, cfg, logo=None):
         page = out.new_page(width=W, height=H)
         border = pymupdf.Rect(MARGIN, MARGIN, W - MARGIN, H - MARGIN)
         page.draw_rect(border, color=BLACK, width=1.5)
-        strip = pymupdf.Rect(border.x1 - STRIP_W, border.y0, border.x1, border.y1)
-        area = pymupdf.Rect(border.x0 + GAP, border.y0 + GAP, strip.x0 - GAP, border.y1 - GAP)
-        place_views(page, src, pno, area, split_views(sp), pc.get("views", []), pc.get("ends"))
-        draw_strip(page, strip, pc, logo, i + 1, len(sheets))
+        if pc.get("layout") == "bottom":
+            bottom = pymupdf.Rect(border.x0, border.y1 - BOTTOM_H, border.x1, border.y1)
+            legend_strip = pymupdf.Rect(border.x1 - LEGEND_W, border.y0, border.x1, bottom.y0 - GAP)
+            area = pymupdf.Rect(border.x0 + GAP, border.y0 + GAP, legend_strip.x0 - GAP, bottom.y0 - GAP)
+            place_views(page, src, pno, area, split_views(sp), pc.get("views", []), pc.get("ends"))
+            draw_bottom_band(page, legend_strip, bottom, pc, logo, i + 1, len(sheets))
+        else:
+            strip = pymupdf.Rect(border.x1 - STRIP_W, border.y0, border.x1, border.y1)
+            area = pymupdf.Rect(border.x0 + GAP, border.y0 + GAP, strip.x0 - GAP, border.y1 - GAP)
+            place_views(page, src, pno, area, split_views(sp), pc.get("views", []), pc.get("ends"))
+            draw_strip(page, strip, pc, logo, i + 1, len(sheets))
     return out
 
 
