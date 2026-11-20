@@ -103,3 +103,14 @@ def test_layout_auto_and_hint(capsys):
     out = wrap.build(wide, [{"source_page": 1}], {**cfg, "layout": "auto"})
     assert "NOTES" not in out[0].get_text()  # empty notes omitted, bottom band still drawn
     assert out[0].get_text().count("TEST") >= 1
+
+
+def test_open_logo_keeps_svg_css_colours(tmp_path):
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="30"><defs><style>'
+           '.a{fill:#00376a;}.b{fill:#fdbd00;}</style></defs>'
+           '<rect class="a" width="100" height="30"/><rect class="b" x="100" width="50" height="30"/></svg>')
+    p = tmp_path / "logo.svg"
+    p.write_text(svg, encoding="utf-8")
+    pix = wrap.open_logo(str(p))[0].get_pixmap(dpi=72)
+    cols = {tuple(pix.pixel(x, pix.height // 2)) for x in range(0, pix.width, 5)}
+    assert (0, 55, 106) in cols and (253, 189, 0) in cols      # navy and yellow, not black

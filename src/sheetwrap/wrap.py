@@ -244,9 +244,37 @@ def draw_bottom_band(page, legend_strip, bottom, pc, logo, sheet_no, n_sheets):
 
 
 def open_logo(path):
-    """Logo as a vector PDF page: SVG/PDF/AI opened as a document."""
-    logo = pymupdf.open(path)
+    """Logo as a vector PDF page: SVG/PDF/AI opened as a document.
+
+    MuPDF ignores SVG <style> blocks, so a logo coloured through CSS classes (as Illustrator exports it) came out
+    black; simple class rules are copied onto the elements first.
+    """
+    if str(path).lower().endswith(".svg"):
+        with open(path, encoding="utf-8") as fh:
+            logo = pymupdf.open("svg", svg_inline_css(fh.read()).encode("utf-8"))
+    else:
+        logo = pymupdf.open(path)
     return logo if logo.is_pdf else pymupdf.open("pdf", logo.convert_to_pdf())
+
+
+def svg_inline_css(svg):
+    """Copy simple `.cls{...}` rules from <style> onto elements with that class, as style="..."."""
+    import re
+    css = "".join(re.findall(r"<style[^>]*>(.*?)</style>", svg, re.S))
+    rules = {}
+    for sels, body in re.findall(r"([^{}]+)\{([^}]*)\}", css):
+        for sel in sels.split(","):
+            sel = sel.strip()
+            if re.fullmatch(r"\.[\w-]+", sel):
+                rules[sel[1:]] = (rules.get(sel[1:], "") + ";" + body.strip()).strip(";")
+    if not rules:
+        return svg
+
+    def _sub(m):
+        style = ";".join(rules[c] for c in m.group(1).split() if c in rules)
+        return f'style="{style}"' if style else m.group(0)
+
+    return re.sub(r'class="([^"]+)"', _sub, svg)
 
 
 def compose_images(pages, width=1000, gap=20):
