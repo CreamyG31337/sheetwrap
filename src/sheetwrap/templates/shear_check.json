@@ -1,0 +1,33 @@
+{
+  "row_labels": ["TOE", "COLLAR"],
+  "station_decimals": 2,
+  "page_order": "auto",
+
+  "views": [
+    {"title": "ORTHOGRAPHIC VIEW", "subtitle": "WALL DESIGN SURFACE WITH DRILL HOLES  -  VE 1.0"},
+    {"title": "PLAN VIEW", "subtitle": "LOOKING DOWN  -  WALL FACE SHOWN AS LINE"}
+  ],
+
+  "legend": [
+    {"kind": "gradient", "colors": ["#b8652e", "#b8a53a", "#7fae3a", "#4f6fae"],
+     "label": "WALL DESIGN SURFACE (ORTHO VIEW). SHADING IS VISUAL ONLY AND HAS NO VALUE."},
+    {"kind": "line", "color": "#5b5bd6", "width": 3, "label": "WALL DESIGN FACE (PLAN VIEW)"},
+    {"kind": "hole", "color": "#8a6d6d", "label": "DRILL HOLE (COLLAR OR TOE) WITH OFFSET LINE PERPENDICULAR TO WALL"},
+    {"kind": "text", "sample": "T233\n330", "label": "HOLE ID / HORIZONTAL OFFSET TO WALL (mm)"},
+    {"kind": "text", "sample": "T133\n290", "color": "#a9a77a", "label": "FADED LABEL: HOLE IS BEHIND THE WALL SURFACE IN THIS VIEW"},
+    {"kind": "line", "color": "#d9363e", "width": 1, "label": "TOE / COLLAR: ROW LABELS IN PLAN VIEW"},
+    {"kind": "scalebar", "color": "#e01b1b", "sample": "2 m", "label": "PLAN VIEW SCALE BAR. RED LINE AT LEFT END POINTS NORTH."}
+  ],
+
+  "sign_convention": [
+    "OFFSETS FROM CL: (-) = LEFT, (+) = RIGHT, LOOKING UP-STATION.",
+    "HOLE-TO-WALL VALUES ARE UNSIGNED: HORIZONTAL DISTANCE (mm) FROM HOLE TO WALL DESIGN SURFACE, PERPENDICULAR TO THE WALL, AT HOLE ELEVATION.",
+    "COLLARS ARE ON THE EXCAVATION SIDE OF THE WALL; TOES ARE BEHIND THE WALL FACE."
+  ],
+
+  "notes": [
+    "END-OF-VIEW REFERENCES GIVE STATION / CL OFFSET OF THE FIRST AND LAST HOLE IN EACH ROW.",
+    "UNITS: STATIONS, COORDINATES AND ELEVATIONS IN METRES; HOLE-TO-WALL OFFSETS IN MILLIMETRES.",
+    "ORTHO VIEW IS A PROJECTED VIEW - DO NOT SCALE. USE PLAN VIEW SCALE BAR."
+  ]
+}
