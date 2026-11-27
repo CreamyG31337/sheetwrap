@@ -116,6 +116,28 @@ stacked bar in TBC cut/fill style.
  "breaks": ["0.200 F", ...]}                                // between bands, len(bands) - 1
 ```
 
+## Excel tables
+
+`sheetwrap.xlsx.write_xlsx` writes styled report tables (needs `openpyxl`: `pip install sheetwrap[xlsx]`).
+Stations are stored as numbers and shown as station text with an Excel number format, so `-5.81` shows
+`-0+005.81`, sorts correctly and keeps its sign (a CSV opened in Excel loses it). Station text in the rows
+(`"1+005.81"`) is converted.
+
+```python
+from sheetwrap.xlsx import Col, write_xlsx
+write_xlsx("check.xlsx", {"Points": {
+    "title": "Pre-pour check", "subtitle": "local grid",
+    "columns": ["Point", Col("Station", "station"), Col("Offset", "0.000"), Col("dZ", "signed"),
+                Col("Result", "status")],          # status: PASS/OK green, FAIL/OUT red, CHECK/WARN amber
+    "rows": rows,                                   # lists in column order or dicts by column name
+    "notes": ["dZ = field - design; + = high."]}})
+```
+
+Column kinds: `station` (`dec`, `unit=100` for `901+25.00` highway stationing), `status`, `signed`
+(`+0.000`), `volume`/`area` (`#,##0.0`), `int`, `date`, `percent`, `text`, or any Excel format string.
+Every sheet gets a frozen, filterable header, widths from the content, notes under the table, and landscape
+fit-to-width printing with the header repeated.
+
 ## Notes
 
 - Bluebeam writes image wrappers with an unpainted path (`re q`). It is
